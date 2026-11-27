@@ -1,0 +1,52 @@
+
+# Frontend
+streamlit
+plotly
+requests
+
+# Backend
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+sqlalchemy
+psycopg[binary]
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+
+# Machine Learning
+numpy
+pandas
+scikit-learn
+xgboost
+joblib
+
+# Generative AI and RAG
+langchain
+langchain-community
+langchain-text-splitters
+langchain-chroma
+langchain-ollama
+langgraph
+sentence-transformers
+chromadb
+
+# Document processing
+pymupdf
+pytesseract
+pillow
+
+# Time series
+statsmodels
+
+# Configuration
+python-dotenv
+pydantic-settings
+
+# Testing
+pytest
+httpx

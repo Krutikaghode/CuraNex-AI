@@ -1,5 +1,5 @@
 # API runtime. Later phases add their own dependencies here as they land
-# (ML: scikit-learn/xgboost, reports: pymupdf/pytesseract, RAG: langchain/chromadb).
+# (reports: pymupdf/pytesseract, RAG: langchain/chromadb).
 fastapi==0.165.0
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.9
@@ -7,3 +7,7 @@ alembic==1.20.1
 psycopg[binary]==3.3.9
 pydantic==2.14.4
 pydantic-settings==2.16.3
+# ML inference (Phase 2). xgboost-cpu is a much smaller wheel but only ships for Linux/Windows.
+numpy==2.5.5
+xgboost-cpu==3.4.1; sys_platform != "darwin"
+xgboost==3.4.1; sys_platform == "darwin"

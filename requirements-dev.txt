@@ -3,3 +3,5 @@
 pytest==9.2.0
 httpx==0.29.0
 ruff==0.17.6
+# Model training (python -m app.ml.train_diabetes)
+scikit-learn==1.9.1

@@ -23,6 +23,12 @@ services:
       CURANEX_OLLAMA_MODEL: ${CURANEX_OLLAMA_MODEL:-llama3.1:8b}
       CURANEX_OLLAMA_EMBED_MODEL: ${CURANEX_OLLAMA_EMBED_MODEL:-nomic-embed-text}
       CURANEX_LLM_PROVIDER: ${CURANEX_LLM_PROVIDER:-ollama}
+      # Demo defaults; override in .env. With CURANEX_ENVIRONMENT=production the API refuses
+      # to start unless CURANEX_JWT_SECRET is a real secret.
+      CURANEX_ENVIRONMENT: ${CURANEX_ENVIRONMENT:-development}
+      CURANEX_JWT_SECRET: ${CURANEX_JWT_SECRET:-dev-only-insecure-secret-change-me-before-deploying}
+      CURANEX_ADMIN_EMAIL: ${CURANEX_ADMIN_EMAIL:-admin@curanex.local}
+      CURANEX_ADMIN_PASSWORD: ${CURANEX_ADMIN_PASSWORD:-Curanex-demo-123}
     volumes:
       - appdata:/srv/data
     depends_on:

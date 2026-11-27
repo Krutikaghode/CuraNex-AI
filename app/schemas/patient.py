@@ -91,6 +91,8 @@ class PatientUpdate(BaseModel):
 class PatientResponse(PatientFields):
     """Patient record returned by the API."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     is_active: bool
     created_at: datetime

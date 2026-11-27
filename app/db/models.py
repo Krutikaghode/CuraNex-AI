@@ -42,6 +42,9 @@ class Patient(Base):
     reports: Mapped[list["MedicalReport"]] = relationship(
         back_populates="patient", order_by="MedicalReport.created_at.desc()"
     )
+    vitals: Mapped[list["VitalReading"]] = relationship(
+        back_populates="patient", order_by="VitalReading.recorded_at"
+    )
 
 
 class Prediction(Base):
@@ -115,3 +118,25 @@ class ReportChunk(Base):
     embedding: Mapped[list] = mapped_column(JSON)
 
     report: Mapped[MedicalReport] = relationship(back_populates="chunks")
+
+
+class VitalReading(Base):
+    """One set of measurements taken at one time. Any metric may be absent."""
+
+    __tablename__ = "vital_readings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    glucose: Mapped[float | None] = mapped_column(Float)
+    systolic_bp: Mapped[float | None] = mapped_column(Float)
+    diastolic_bp: Mapped[float | None] = mapped_column(Float)
+    heart_rate: Mapped[float | None] = mapped_column(Float)
+    spo2: Mapped[float | None] = mapped_column(Float)
+    temperature_c: Mapped[float | None] = mapped_column(Float)
+    weight_kg: Mapped[float | None] = mapped_column(Float)
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(20), default="manual")  # manual | demo
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    patient: Mapped[Patient] = relationship(back_populates="vitals")

@@ -16,6 +16,7 @@ Streamlit UI (frontend/)  --HTTP-->  FastAPI (app/)  -->  SQLAlchemy  -->  SQLit
                                          +-- app/ml      diabetes risk model (XGBoost + SHAP)
                                          +-- app/reports PDF text extraction + Tesseract OCR
                                          +-- app/rag     chunking, embeddings, retrieval, cited answers
+                                         +-- app/monitoring vitals analysis (ranges, baseline outliers, trends)
                                          +-- app/agents  LangGraph router (Phase 7, stretch)
                                          +-- Ollama      local LLM, optional compose profile
 ```
@@ -144,6 +145,30 @@ accuracy, citation rate and guardrail passes. Use it to tune `CURANEX_RAG_TOP_K`
 | `POST /patients/{id}/assistant/index` | Index the patient's reports now |
 | `POST /patients/{id}/assistant/ask` | `{"question": ...}` → answer + citations |
 
+## Health monitoring
+
+Record vitals (glucose, BP, heart rate, SpO2, temperature, weight) per patient. Each
+metric gets three independent signals:
+
+- **Range flag:** the latest value is outside a general adult reference range
+  (`app/monitoring/metrics.py`).
+- **Baseline outlier:** the latest value is far from the patient's own history (modified
+  z-score from median and MAD, |z| ≥ 3.5, needs 6+ readings). This catches changes that
+  are still "in range" but unusual for that person.
+- **Trend:** least-squares slope per 30 days with R².
+
+The dashboard lists active patients with alerts. `POST /patients/{id}/vitals/demo` (also a
+button in the UI) generates 30 days of synthetic readings, so every signal can be
+demonstrated.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /patients/{id}/vitals` | Record a reading |
+| `GET /patients/{id}/vitals?days=` | List readings |
+| `GET /patients/{id}/vitals/analysis?days=` | Flags, outliers, trends, alerts |
+| `POST /patients/{id}/vitals/demo` | Generate synthetic history (`stable` or `worsening`) |
+| `GET /monitoring/alerts` | Active patients with alerts |
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -155,6 +180,6 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 | 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Done |
 | 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Done |
 | 4 | RAG assistant: chunking, Ollama embeddings, DB-backed retrieval, cited answers, eval set | Done |
-| 5 | Health monitoring: vitals, trends, anomaly flags (statsmodels) | Planned |
+| 5 | Health monitoring: vitals, range flags, baseline outliers, trends | Done |
 | 6 | Auth: JWT, clinician role | Planned |
 | 7 | LangGraph agent router (stretch) | Planned |

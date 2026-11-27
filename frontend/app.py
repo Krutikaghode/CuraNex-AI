@@ -1,7 +1,8 @@
-"""Streamlit entrypoint: page config, sidebar and navigation."""
+"""Streamlit entrypoint: page config, sign-in gate, sidebar and navigation."""
 
 import streamlit as st
 
+from api_client import current_user, sign_out
 from ui import DISCLAIMER, apply_styles
 
 st.set_page_config(
@@ -11,6 +12,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 apply_styles()
+
+user = current_user()
+if user is None:
+    st.navigation([st.Page("views/login.py", title="Sign in", icon="🔐")]).run()
+    st.stop()
 
 PAGES = {
     "Main menu": [
@@ -32,6 +38,10 @@ navigation = st.navigation(PAGES)
 
 with st.sidebar:
     st.divider()
+    st.caption(f"Signed in as **{user['full_name']}** ({user['role']})")
+    if st.button("Sign out", use_container_width=True):
+        sign_out()
+        st.rerun()
     st.caption(DISCLAIMER)
 
 navigation.run()

@@ -17,3 +17,6 @@ pytesseract==0.3.13
 pillow==13.0.0
 # Assistant (Phase 4): HTTP client for Ollama; embeddings and generation run in Ollama.
 httpx==0.29.0
+# Auth (Phase 6): Argon2 password hashing and JWT access tokens.
+pwdlib[argon2]==0.4.2
+pyjwt==2.15.1

@@ -49,6 +49,7 @@ cp .env.example .env            # optional; defaults use SQLite in ./data
 alembic upgrade head            # create/upgrade the database
 uvicorn app.main:app --reload   # API on http://127.0.0.1:8000 (docs at /docs)
 
+python -m app.cli create-user --email you@example.com --name "Your Name" --role admin
 cd frontend && streamlit run app.py   # UI on http://localhost:8501
 ```
 
@@ -60,7 +61,9 @@ docker compose --profile llm up --build   # also starts Ollama (needs ~8 GB RAM)
 ```
 
 The API container runs `alembic upgrade head` on start. UI: http://localhost:8501,
-API: http://localhost:8000/docs.
+API: http://localhost:8000/docs. Sign in with the demo admin `admin@curanex.local` /
+`Curanex-demo-123` (set `CURANEX_ADMIN_EMAIL` / `CURANEX_ADMIN_PASSWORD` in `.env` to change it
+before the first start).
 
 ## Development
 
@@ -169,6 +172,29 @@ demonstrated.
 | `POST /patients/{id}/vitals/demo` | Generate synthetic history (`stable` or `worsening`) |
 | `GET /monitoring/alerts` | Active patients with alerts |
 
+## Authentication
+
+Every endpoint except `GET /health` and `POST /auth/token` requires a bearer token.
+
+- Passwords are hashed with Argon2 (`pwdlib`); tokens are HS256 JWTs (`PyJWT`), 60 minutes
+  by default. Deactivating a user invalidates their existing tokens on the next request.
+- Roles: `clinician` (all clinical features) and `admin` (also manages users).
+- The first admin comes from `CURANEX_ADMIN_EMAIL` / `CURANEX_ADMIN_PASSWORD` when no
+  users exist, or from `python -m app.cli create-user`.
+- Outside `CURANEX_ENVIRONMENT=development` the API will not start with the default or a
+  short `CURANEX_JWT_SECRET`.
+- The Streamlit UI keeps the token in server-side session state only and signs out on 401.
+
+Not included (out of scope for a demo): refresh tokens, login rate limiting, password
+reset, per-patient access control and an audit log.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /auth/token` | OAuth2 password flow (`username` = email) |
+| `GET /auth/me` | Current user |
+| `GET/POST /auth/users` | List / create users (admin) |
+| `PATCH /auth/users/{id}` | Activate / deactivate (admin) |
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -181,5 +207,5 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 | 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Done |
 | 4 | RAG assistant: chunking, Ollama embeddings, DB-backed retrieval, cited answers, eval set | Done |
 | 5 | Health monitoring: vitals, range flags, baseline outliers, trends | Done |
-| 6 | Auth: JWT, clinician role | Planned |
+| 6 | Auth: Argon2 + JWT, clinician/admin roles, login UI | Done |
 | 7 | LangGraph agent router (stretch) | Planned |

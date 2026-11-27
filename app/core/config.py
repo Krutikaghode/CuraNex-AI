@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
     ollama_embed_model: str = "nomic-embed-text"
     llm_timeout_seconds: float = 120.0
+    # Auth. The default secret only works in development; production refuses to start with it.
+    jwt_secret: str = "dev-only-insecure-secret-change-me-before-deploying"
+    jwt_expire_minutes: int = 60
+    # Optional first-run admin, created on startup if no users exist yet.
+    admin_email: str | None = None
+    admin_password: str | None = None
     # Retrieval
     rag_chunk_chars: int = 900
     rag_chunk_overlap: int = 150

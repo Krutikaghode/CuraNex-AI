@@ -7,10 +7,12 @@ import requests
 API_BASE_URL = os.getenv("CURANEX_API_URL", "http://127.0.0.1:8000")
 
 
-def api_request(method: str, path: str, **kwargs):
+def api_request(method: str, path: str, timeout: float = 10, **kwargs):
     """Call the API and return a (data, error_message) pair for the UI."""
     try:
-        response = requests.request(method, f"{API_BASE_URL}{path}", timeout=5, **kwargs)
+        response = requests.request(method, f"{API_BASE_URL}{path}", timeout=timeout, **kwargs)
+    except requests.Timeout:
+        return None, "The backend took too long to respond. Try again."
     except requests.RequestException:
         return None, "Cannot reach the backend. Start the API and try again."
 

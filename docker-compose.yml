@@ -20,6 +20,9 @@ services:
     environment:
       CURANEX_DATABASE_URL: postgresql+psycopg://curanex:${POSTGRES_PASSWORD:-curanex-dev-only}@db:5432/curanex
       CURANEX_OLLAMA_BASE_URL: http://ollama:11434
+      CURANEX_OLLAMA_MODEL: ${CURANEX_OLLAMA_MODEL:-llama3.1:8b}
+      CURANEX_OLLAMA_EMBED_MODEL: ${CURANEX_OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      CURANEX_LLM_PROVIDER: ${CURANEX_LLM_PROVIDER:-ollama}
     volumes:
       - appdata:/srv/data
     depends_on:
@@ -45,7 +48,8 @@ services:
     ports:
       - "8501:8501"
 
-  # Local LLM for the RAG assistant (Phase 4). Opt in with: docker compose --profile llm up
+  # Local LLM for the assistant. Opt in with: docker compose --profile llm up
+  # Needs ~8 GB free RAM for llama3.1:8b; set CURANEX_OLLAMA_MODEL to a smaller model if not.
   ollama:
     image: ollama/ollama:latest
     profiles: ["llm"]
@@ -53,6 +57,24 @@ services:
       - ollama:/root/.ollama
     ports:
       - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # One-shot job that downloads the chat and embedding models into the ollama volume.
+  ollama-pull:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["sh", "-c"]
+    command:
+      - ollama pull ${CURANEX_OLLAMA_MODEL:-llama3.1:8b} && ollama pull ${CURANEX_OLLAMA_EMBED_MODEL:-nomic-embed-text}
+    depends_on:
+      ollama:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -16,10 +16,18 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     # Trained model artifacts; each model lives in its own subdirectory.
     models_dir: str = "./models"
-    # LLM provider for the RAG assistant (later phase): "ollama" or "anthropic".
+    # LLM provider for the RAG assistant: "ollama" (default) or "fake" (tests/offline demo).
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
+    ollama_embed_model: str = "nomic-embed-text"
+    llm_timeout_seconds: float = 120.0
+    # Retrieval
+    rag_chunk_chars: int = 900
+    rag_chunk_overlap: int = 150
+    rag_top_k: int = 5
+    # Cosine cut-off below which chunks are dropped. Model-dependent; tune with app.rag.evaluate.
+    rag_min_score: float = 0.0
 
 
 @lru_cache

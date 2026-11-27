@@ -1,229 +1,276 @@
 # CuraNex AI
 
-An educational healthcare decision-support prototype: patient management, ML-based disease
-risk prediction, medical report analysis with a report-aware AI assistant, and health
-monitoring.
+CuraNex AI is a small healthcare decision-support app I built to learn how the pieces of a
+"clinical AI" product fit together. You can register patients, estimate their diabetes risk
+and see why the model scored them that way, upload lab reports and ask questions about them,
+and keep an eye on vitals over time. Everything runs on your own machine, including the
+language model.
 
-> **Disclaimer.** CuraNex AI is a portfolio/academic project, not a medical device or
-> diagnostic system. Use synthetic or public de-identified data only. Never enter real
-> patient information.
+> **Please read this first.** CuraNex AI is a portfolio and learning project. It is not a
+> medical device and it does not diagnose anything. Only use synthetic or public,
+> de-identified data, and never enter real patient information.
 
-## Architecture
+![Dashboard](docs/images/dashboard.png)
 
+## What it can do
+
+- **Manage patients.** Add, edit and archive patient records.
+- **Estimate diabetes risk.** An XGBoost model trained on the Pima Indians Diabetes dataset
+  gives a risk score, and a SHAP chart shows which inputs pushed the score up or down.
+  Every prediction is saved, so you can watch how a patient's risk changes.
+- **Read medical reports.** Upload a PDF or an image. CuraNex pulls the text out, and falls
+  back to OCR when the file is a scan.
+- **Answer questions about reports.** Ask something like "What was her last HbA1c?" and get
+  an answer that cites the exact report excerpts it used.
+- **Watch vitals.** Record glucose, blood pressure, heart rate, SpO2, temperature and weight.
+  The app flags readings that are out of range, unusual for that specific patient, or
+  trending the wrong way.
+- **Ask anything.** One chat box routes your question to the right place: reports, risk,
+  vitals, or a full overview of the patient.
+
+| Risk prediction with explanation | "Ask anything" assistant |
+|---|---|
+| ![Prediction](docs/images/prediction.png) | ![Assistant](docs/images/assistant.png) |
+
+![Health monitoring](docs/images/monitoring.png)
+
+## Quick start
+
+The easiest way to try it is with Docker:
+
+```bash
+docker compose up --build
 ```
-Streamlit UI (frontend/)  --HTTP-->  FastAPI (app/)  -->  SQLAlchemy  -->  SQLite (dev) / Postgres (compose)
-                                         |
-                                         +-- app/ml      diabetes risk model (XGBoost + SHAP)
-                                         +-- app/reports PDF text extraction + Tesseract OCR
-                                         +-- app/rag     chunking, embeddings, retrieval, cited answers
-                                         +-- app/monitoring vitals analysis (ranges, baseline outliers, trends)
-                                         +-- app/agents  LangGraph router over reports, risk and vitals
-                                         +-- Ollama      local LLM, optional compose profile
+
+Then open http://localhost:8501 and sign in with the demo account `admin@curanex.local` /
+`Curanex-demo-123`. The API and its interactive docs are at http://localhost:8000/docs.
+
+That starts Postgres, the API and the UI. The AI assistant needs a local language model, so
+to turn it on as well, run:
+
+```bash
+docker compose --profile llm up --build
 ```
 
-```
-app/
-  main.py              FastAPI app
-  core/config.py       settings (env vars prefixed CURANEX_)
-  db/                  engine/session, ORM models
-  schemas/             Pydantic request/response models
-  services/            business logic, no HTTP
-  api/routes/          HTTP endpoints
-migrations/            Alembic migrations
-frontend/
-  app.py               Streamlit entrypoint and navigation
-  views/               one file per page
-datasets/              training data (see datasets/README.md)
-models/                trained model artifacts + metadata (committed)
-docker/                Dockerfiles for api and ui
-tests/                 pytest suite
-```
+This adds Ollama and downloads `llama3.1:8b` and `nomic-embed-text` the first time (a few GB,
+and you'll want around 8 GB of RAM free). If you'd rather skip the download, set
+`CURANEX_LLM_PROVIDER=fake` and the assistant will give simple extractive answers instead.
 
-## Run locally
+To change the demo login, set `CURANEX_ADMIN_EMAIL` and `CURANEX_ADMIN_PASSWORD` in `.env`
+before the first start.
+
+### Running without Docker
+
+You'll need Python 3.13 (what CI uses) and, for scanned reports, the `tesseract` binary
+(`brew install tesseract` or `apt install tesseract-ocr`).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env            # optional; defaults use SQLite in ./data
+cp .env.example .env              # optional, the defaults use SQLite in ./data
 
-alembic upgrade head            # create/upgrade the database
-uvicorn app.main:app --reload   # API on http://127.0.0.1:8000 (docs at /docs)
+alembic upgrade head              # create the database
+uvicorn app.main:app --reload     # API on http://127.0.0.1:8000
 
+# in a second terminal
 python -m app.cli create-user --email you@example.com --name "Your Name" --role admin
 cd frontend && streamlit run app.py   # UI on http://localhost:8501
 ```
 
-## Run with Docker
+For the assistant, install [Ollama](https://ollama.com) and run
+`ollama pull llama3.1:8b && ollama pull nomic-embed-text`.
 
-```bash
-docker compose up --build                 # postgres + api + ui
-docker compose --profile llm up --build   # also starts Ollama (needs ~8 GB RAM)
+## How it's put together
+
+```
+Streamlit UI (frontend/) ──HTTP──► FastAPI (app/) ──► SQLAlchemy ──► SQLite (dev) / Postgres (Docker)
+                                        │
+                                        ├─ app/ml          diabetes risk model (XGBoost + SHAP)
+                                        ├─ app/reports     PDF text extraction + Tesseract OCR
+                                        ├─ app/rag         chunking, embeddings, retrieval, cited answers
+                                        ├─ app/monitoring  vitals analysis
+                                        ├─ app/agents      LangGraph router for "Ask anything"
+                                        └─ Ollama          local LLM (optional)
 ```
 
-The API container runs `alembic upgrade head` on start. UI: http://localhost:8501,
-API: http://localhost:8000/docs. Sign in with the demo admin `admin@curanex.local` /
-`Curanex-demo-123` (set `CURANEX_ADMIN_EMAIL` / `CURANEX_ADMIN_PASSWORD` in `.env` to change it
-before the first start).
+The UI only talks to the API, and the API keeps business logic in `app/services/` so the
+HTTP layer stays thin. Database changes go through Alembic migrations in `migrations/`.
 
-## Development
+<details>
+<summary>Folder layout</summary>
 
-```bash
-pytest -q
-ruff check . && ruff format --check .
-alembic revision --autogenerate -m "describe change"   # after changing app/db/models.py
+```
+app/
+  main.py              FastAPI app
+  core/                settings (env vars prefixed CURANEX_) and security helpers
+  db/                  engine, session and ORM models
+  schemas/             Pydantic request and response models
+  services/            business logic, no HTTP
+  api/routes/          HTTP endpoints
+  ml/ reports/ rag/ monitoring/ agents/
+migrations/            Alembic migrations
+frontend/
+  app.py               Streamlit entrypoint and navigation
+  views/               one file per page
+datasets/              training and evaluation data (see datasets/README.md)
+models/                trained model and its metadata
+docker/                Dockerfiles for the API and the UI
+tests/                 pytest suite
 ```
 
-## Diabetes risk model
+</details>
 
-`models/diabetes/` ships a trained XGBoost model (native JSON format, no pickle) and
-`metadata.json` with its version, hyperparameters, dataset hash and held-out metrics
-(currently ROC AUC 0.82, recall 0.83). To retrain:
+## A closer look at each part
 
-```bash
-python -m app.ml.train_diabetes   # grid search with 5-fold CV, ~10 s
-```
+### Diabetes risk
 
-Zeros in glucose, blood pressure, skin thickness, insulin and BMI are treated as missing.
-Each prediction stores its inputs, model version and per-feature SHAP contributions, so
-results are reproducible and explainable. Risk bands: low < 30% ≤ moderate < 60% ≤ high.
-The training population (Pima women aged 21+) limits how far scores generalise.
+The model lives in `models/diabetes/` as plain XGBoost JSON (no pickle files), next to a
+`metadata.json` that records its version, settings, a hash of the training data and its
+scores on held-out data. Right now that's a ROC AUC of 0.82 and a recall of 0.83.
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /models/diabetes` | Model metadata and metrics |
-| `POST /patients/{id}/predictions/diabetes` | Score a patient and store the result |
-| `GET /patients/{id}/predictions` | Prediction history |
-| `GET /predictions/summary` | Risk distribution across active patients (latest per patient) |
+A few things worth knowing:
 
-## Medical reports
+- In the Pima data a zero for glucose, blood pressure, skin thickness, insulin or BMI really
+  means "not measured", so the model treats those zeros as missing.
+- Risk is shown as low (under 30%), moderate (30 to 60%) or high (60% and up).
+- Each saved prediction keeps its inputs, the model version and the SHAP values, so you can
+  always see exactly how an old score was produced.
+- The training data only covers Pima women aged 21 and over, so don't read too much into
+  scores for anyone outside that group.
 
-Upload PDF, PNG or JPEG (max 10 MB) per patient. The file type is checked from its bytes,
-files are stored under random names in `CURANEX_DATA_DIR/reports/<patient_id>/`, and the
-extracted text is saved with the report. PDF pages with a text layer are read directly with
-PyMuPDF; pages without one (scans) and images are OCR'd with Tesseract. Local runs need the
-`tesseract` binary (`brew install tesseract` / `apt install tesseract-ocr`); the Docker image
-includes it.
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /patients/{id}/reports` | Upload (multipart `file`) and extract text |
-| `GET /patients/{id}/reports` | List a patient's reports |
-| `GET /reports/{id}` | Report metadata and extracted text |
-| `GET /reports/{id}/file` | Download the original file |
-| `GET /reports/count` | Number of successfully processed reports |
-
-## AI assistant (RAG)
-
-Ask questions about one patient's processed reports and get answers that cite the excerpts
-they came from.
-
-1. **Chunk** each report's text into ~900-character, page-aware chunks with overlap.
-2. **Embed** chunks with `nomic-embed-text` via Ollama and store the vectors in the
-   `report_chunks` table (JSON). Reports are indexed lazily on the first question, and
-   re-indexed automatically if the embedding model changes.
-3. **Retrieve** the top-k chunks for the patient by cosine similarity (numpy). Per-patient
-   corpora are small, so a separate vector database adds operations cost without benefit.
-4. **Generate** with `llama3.1:8b` via Ollama, using a system prompt that requires answers
-   only from the excerpts, `[n]` citations, no diagnosis, and treats report text as untrusted
-   data (prompt-injection guard).
-
-Everything runs locally; no report text leaves the machine. Set `CURANEX_LLM_PROVIDER=fake`
-for an offline demo with extractive answers (also used by the tests).
+To retrain (takes about 10 seconds):
 
 ```bash
-docker compose --profile llm up --build    # starts Ollama and pulls both models once
-# or, without Docker: ollama serve && ollama pull llama3.1:8b && ollama pull nomic-embed-text
-
-CURANEX_LLM_PROVIDER=ollama python -m app.rag.evaluate --verbose   # quality report
+python -m app.ml.train_diabetes
 ```
 
-`app.rag.evaluate` runs 10 synthetic cases from `datasets/rag_eval/cases.json` (including an
-injected instruction and an unanswerable question) and reports retrieval hit rate, answer
-accuracy, citation rate and guardrail passes. Use it to tune `CURANEX_RAG_TOP_K` and
-`CURANEX_RAG_MIN_SCORE` or to compare models.
+### Medical reports
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /assistant/status` | Provider, models, reachability, missing models |
-| `POST /patients/{id}/assistant/index` | Index the patient's reports now |
-| `POST /patients/{id}/assistant/ask` | `{"question": ...}` → answer + citations |
+You can upload PDF, PNG or JPEG files up to 10 MB. The app checks the file's actual contents
+rather than trusting its extension, and stores it under a random name. PDF pages that have
+real text are read directly with PyMuPDF. Scanned pages and images go through Tesseract OCR.
 
-## Health monitoring
+### The report assistant (RAG)
 
-Record vitals (glucose, BP, heart rate, SpO2, temperature, weight) per patient. Each
-metric gets three independent signals:
+When you ask about a patient's reports, CuraNex:
 
-- **Range flag:** the latest value is outside a general adult reference range
-  (`app/monitoring/metrics.py`).
-- **Baseline outlier:** the latest value is far from the patient's own history (modified
-  z-score from median and MAD, |z| ≥ 3.5, needs 6+ readings). This catches changes that
-  are still "in range" but unusual for that person.
-- **Trend:** least-squares slope per 30 days with R².
+1. splits each report into overlapping chunks of about 900 characters, keeping track of
+   which page each chunk came from,
+2. turns those chunks into embeddings with `nomic-embed-text` and stores them in the
+   database (this happens the first time you ask, and again if you change embedding model),
+3. finds the most relevant chunks for that patient using cosine similarity, and
+4. asks `llama3.1:8b` to answer using only those chunks, citing them as `[1]`, `[2]` and so on.
 
-The dashboard lists active patients with alerts. `POST /patients/{id}/vitals/demo` (also a
-button in the UI) generates 30 days of synthetic readings, so every signal can be
-demonstrated.
+The prompt tells the model not to diagnose, and to treat report text as data rather than
+instructions, which guards against a report that tries to hijack the assistant. No report
+text ever leaves your machine.
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /patients/{id}/vitals` | Record a reading |
-| `GET /patients/{id}/vitals?days=` | List readings |
-| `GET /patients/{id}/vitals/analysis?days=` | Flags, outliers, trends, alerts |
-| `POST /patients/{id}/vitals/demo` | Generate synthetic history (`stable` or `worsening`) |
-| `GET /monitoring/alerts` | Active patients with alerts |
+I deliberately didn't use a vector database here. Each patient only has a handful of
+reports, so a few hundred vectors and numpy are plenty, and it's one less service to run.
 
-## Authentication
+There's a small evaluation set to check answer quality, including a prompt-injection
+attempt and a question the reports can't answer:
 
-Every endpoint except `GET /health` and `POST /auth/token` requires a bearer token.
+```bash
+CURANEX_LLM_PROVIDER=ollama python -m app.rag.evaluate --verbose
+```
 
-- Passwords are hashed with Argon2 (`pwdlib`); tokens are HS256 JWTs (`PyJWT`), 60 minutes
-  by default. Deactivating a user invalidates their existing tokens on the next request.
-- Roles: `clinician` (all clinical features) and `admin` (also manages users).
-- The first admin comes from `CURANEX_ADMIN_EMAIL` / `CURANEX_ADMIN_PASSWORD` when no
-  users exist, or from `python -m app.cli create-user`.
-- Outside `CURANEX_ENVIRONMENT=development` the API will not start with the default or a
-  short `CURANEX_JWT_SECRET`.
-- The Streamlit UI keeps the token in server-side session state only and signs out on 401.
+It reports how often the right excerpt was found, how often the answer was right, how often
+it cited its sources, and whether the guardrails held. It's handy for tuning
+`CURANEX_RAG_TOP_K` and `CURANEX_RAG_MIN_SCORE` or comparing models.
 
-Not included (out of scope for a demo): refresh tokens, login rate limiting, password
-reset, per-patient access control and an audit log.
+### Health monitoring
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /auth/token` | OAuth2 password flow (`username` = email) |
-| `GET /auth/me` | Current user |
-| `GET/POST /auth/users` | List / create users (admin) |
-| `PATCH /auth/users/{id}` | Activate / deactivate (admin) |
+Each vital sign gets three separate checks:
 
-## Agent router ("Ask anything")
+- **Out of range:** the latest reading falls outside a general adult reference range.
+- **Unusual for this patient:** the latest reading is far from the patient's own history
+  (a robust z-score based on the median, needing at least 6 readings). This catches changes
+  that are still technically "normal" but aren't normal for that person.
+- **Trend:** how fast the value is rising or falling per 30 days, and how steady that trend is.
 
-`POST /patients/{id}/agent/ask` runs a LangGraph workflow (`app/agents/graph.py`):
+The dashboard lists every patient with an active alert. If you just want to see it in
+action, the **Generate 30 days of demo vitals** button creates 30 days of synthetic readings, either
+stable or worsening.
+
+### "Ask anything"
+
+This is a small LangGraph workflow:
 
 ```
 route ──► reports | risk | vitals | overview ──► compose
 ```
 
-- **route:** the LLM classifies the question into one word; any other reply (or an LLM
-  outage) falls back to keyword rules. The response says which router decided.
-- **reports:** the RAG assistant above, with citations.
-- **risk / vitals:** rendered from stored predictions and the vitals analysis with fixed
-  templates, so their numbers cannot be hallucinated, and they keep working when the LLM
-  is down.
-- **overview:** risk + vitals + "which report results are flagged abnormal".
+The language model reads your question and picks one of the four routes. If it gives an
+odd answer or isn't running, simple keyword rules take over. Questions about reports go to
+the assistant above. Risk and vitals answers are filled in from stored data using fixed
+templates, so the numbers can't be made up, and they keep working even when the language
+model is down. Each answer has a "How this was answered" section showing the steps it took.
 
-Each answer includes a step trace, shown in the UI under "How this was answered".
+### Sign-in and roles
 
-CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
+Everything except the health check and the login endpoint needs you to be signed in.
+Passwords are hashed with Argon2 and sessions use JWTs that last 60 minutes. There are two
+roles: clinicians can use every clinical feature, and admins can also manage users. When you
+deactivate a user, their existing sessions stop working straight away.
 
-## Roadmap
+Outside development mode the API refuses to start with the default or a weak
+`CURANEX_JWT_SECRET`, so you can't accidentally ship the demo secret.
 
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Scope, README, disclaimer | Done |
-| 1 | Foundation: single `app/` package, settings, SQLAlchemy + Alembic, Docker, CI, multipage UI | Done |
-| 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Done |
-| 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Done |
-| 4 | RAG assistant: chunking, Ollama embeddings, DB-backed retrieval, cited answers, eval set | Done |
-| 5 | Health monitoring: vitals, range flags, baseline outliers, trends | Done |
-| 6 | Auth: Argon2 + JWT, clinician/admin roles, login UI | Done |
-| 7 | LangGraph agent router (reports, risk, vitals, overview) | Done |
+Because this is a demo, a few things a real product would need are left out: refresh tokens,
+login rate limiting, password reset, per-patient access control and an audit log.
+
+<details>
+<summary>API endpoints</summary>
+
+All endpoints are also listed with request and response schemas at `/docs`.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /auth/token` | Sign in (OAuth2 password flow, `username` is the email) |
+| `GET /auth/me` | The signed-in user |
+| `GET` / `POST /auth/users` | List or create users (admin) |
+| `PATCH /auth/users/{id}` | Activate or deactivate a user (admin) |
+| `GET /models/diabetes` | Model metadata and scores |
+| `POST /patients/{id}/predictions/diabetes` | Score a patient and save the result |
+| `GET /patients/{id}/predictions` | A patient's prediction history |
+| `GET /predictions/summary` | Latest risk level across active patients |
+| `POST /patients/{id}/reports` | Upload a report (multipart `file`) |
+| `GET /patients/{id}/reports` | A patient's reports |
+| `GET /reports/{id}` | Report details and extracted text |
+| `GET /reports/{id}/file` | Download the original file |
+| `GET /reports/count` | Number of processed reports |
+| `GET /assistant/status` | Which models are configured and reachable |
+| `POST /patients/{id}/assistant/index` | Index a patient's reports now |
+| `POST /patients/{id}/assistant/ask` | Ask about a patient's reports |
+| `POST /patients/{id}/agent/ask` | "Ask anything" |
+| `POST /patients/{id}/vitals` | Record a reading |
+| `GET /patients/{id}/vitals?days=` | List readings |
+| `GET /patients/{id}/vitals/analysis?days=` | Flags, outliers, trends and alerts |
+| `POST /patients/{id}/vitals/demo` | Generate synthetic history (`stable` or `worsening`) |
+| `GET /monitoring/alerts` | Active patients with alerts |
+
+</details>
+
+## Development
+
+```bash
+pytest -q                                   # run the tests
+ruff check . && ruff format --check .       # lint and formatting
+alembic revision --autogenerate -m "..."    # after changing app/db/models.py
+```
+
+The tests use a fake language model, so they run offline and don't need Ollama. GitHub
+Actions runs the linter, the tests, a migration up-and-down check and a Docker build on
+every pull request.
+
+## What's done and what could come next
+
+All the planned pieces are in place: the foundation, diabetes prediction, report upload and
+OCR, the report assistant, health monitoring, sign-in, and the "Ask anything" router.
+
+Ideas for later:
+
+- a second model, such as heart disease risk
+- per-patient access control and an audit log
+- running the assistant evaluation in CI against a real model

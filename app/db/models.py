@@ -39,6 +39,9 @@ class Patient(Base):
     predictions: Mapped[list["Prediction"]] = relationship(
         back_populates="patient", order_by="Prediction.created_at.desc()"
     )
+    reports: Mapped[list["MedicalReport"]] = relationship(
+        back_populates="patient", order_by="MedicalReport.created_at.desc()"
+    )
 
 
 class Prediction(Base):
@@ -60,3 +63,29 @@ class Prediction(Base):
     )
 
     patient: Mapped[Patient] = relationship(back_populates="predictions")
+
+
+class MedicalReport(Base):
+    """An uploaded report file plus the text extracted from it."""
+
+    __tablename__ = "medical_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    storage_path: Mapped[str] = mapped_column(String(500))
+    # processed | failed
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    # text | ocr | mixed | none
+    extraction_method: Mapped[str] = mapped_column(String(20))
+    page_count: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(Text, default="")
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    patient: Mapped[Patient] = relationship(back_populates="reports")

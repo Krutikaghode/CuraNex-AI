@@ -31,3 +31,12 @@ def api_request(method: str, path: str, **kwargs):
 def backend_online() -> bool:
     data, error = api_request("GET", "/health")
     return error is None and bool(data) and data.get("status") == "ok"
+
+
+def fetch_bytes(path: str) -> bytes | None:
+    """Download a binary resource through the UI server (the browser cannot reach the API)."""
+    try:
+        response = requests.get(f"{API_BASE_URL}{path}", timeout=15)
+    except requests.RequestException:
+        return None
+    return response.content if response.ok else None

@@ -84,8 +84,34 @@ class MedicalReport(Base):
     page_count: Mapped[int] = mapped_column(Integer, default=0)
     text: Mapped[str] = mapped_column(Text, default="")
     error: Mapped[str | None] = mapped_column(Text)
+    # Set once the text has been chunked and embedded for the assistant.
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    embedding_model: Mapped[str | None] = mapped_column(String(100))
+    index_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
 
     patient: Mapped[Patient] = relationship(back_populates="reports")
+    chunks: Mapped[list["ReportChunk"]] = relationship(
+        back_populates="report", cascade="all, delete-orphan", order_by="ReportChunk.chunk_index"
+    )
+
+
+class ReportChunk(Base):
+    """A slice of report text plus its embedding, used for retrieval."""
+
+    __tablename__ = "report_chunks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_id: Mapped[int] = mapped_column(
+        ForeignKey("medical_reports.id", ondelete="CASCADE"), index=True
+    )
+    # Denormalised so retrieval can filter by patient without a join.
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    page: Mapped[int | None] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list] = mapped_column(JSON)
+
+    report: Mapped[MedicalReport] = relationship(back_populates="chunks")

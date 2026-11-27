@@ -14,7 +14,8 @@ monitoring.
 Streamlit UI (frontend/)  --HTTP-->  FastAPI (app/)  -->  SQLAlchemy  -->  SQLite (dev) / Postgres (compose)
                                          |
                                          +-- app/ml      diabetes risk model (XGBoost + SHAP)
-                                         +-- app/rag     report ingestion + retrieval (Phases 3-4)
+                                         +-- app/reports PDF text extraction + Tesseract OCR
+                                         +-- app/rag     chunking, embeddings, retrieval, cited answers
                                          +-- app/agents  LangGraph router (Phase 7, stretch)
                                          +-- Ollama      local LLM, optional compose profile
 ```
@@ -107,6 +108,42 @@ includes it.
 | `GET /reports/{id}/file` | Download the original file |
 | `GET /reports/count` | Number of successfully processed reports |
 
+## AI assistant (RAG)
+
+Ask questions about one patient's processed reports and get answers that cite the excerpts
+they came from.
+
+1. **Chunk** each report's text into ~900-character, page-aware chunks with overlap.
+2. **Embed** chunks with `nomic-embed-text` via Ollama and store the vectors in the
+   `report_chunks` table (JSON). Reports are indexed lazily on the first question, and
+   re-indexed automatically if the embedding model changes.
+3. **Retrieve** the top-k chunks for the patient by cosine similarity (numpy). Per-patient
+   corpora are small, so a separate vector database adds operations cost without benefit.
+4. **Generate** with `llama3.1:8b` via Ollama, using a system prompt that requires answers
+   only from the excerpts, `[n]` citations, no diagnosis, and treats report text as untrusted
+   data (prompt-injection guard).
+
+Everything runs locally; no report text leaves the machine. Set `CURANEX_LLM_PROVIDER=fake`
+for an offline demo with extractive answers (also used by the tests).
+
+```bash
+docker compose --profile llm up --build    # starts Ollama and pulls both models once
+# or, without Docker: ollama serve && ollama pull llama3.1:8b && ollama pull nomic-embed-text
+
+CURANEX_LLM_PROVIDER=ollama python -m app.rag.evaluate --verbose   # quality report
+```
+
+`app.rag.evaluate` runs 10 synthetic cases from `datasets/rag_eval/cases.json` (including an
+injected instruction and an unanswerable question) and reports retrieval hit rate, answer
+accuracy, citation rate and guardrail passes. Use it to tune `CURANEX_RAG_TOP_K` and
+`CURANEX_RAG_MIN_SCORE` or to compare models.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /assistant/status` | Provider, models, reachability, missing models |
+| `POST /patients/{id}/assistant/index` | Index the patient's reports now |
+| `POST /patients/{id}/assistant/ask` | `{"question": ...}` → answer + citations |
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -117,7 +154,7 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 | 1 | Foundation: single `app/` package, settings, SQLAlchemy + Alembic, Docker, CI, multipage UI | Done |
 | 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Done |
 | 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Done |
-| 4 | RAG assistant: chunking, embeddings, Chroma, Ollama, cited answers, eval set | Planned |
+| 4 | RAG assistant: chunking, Ollama embeddings, DB-backed retrieval, cited answers, eval set | Done |
 | 5 | Health monitoring: vitals, trends, anomaly flags (statsmodels) | Planned |
 | 6 | Auth: JWT, clinician role | Planned |
 | 7 | LangGraph agent router (stretch) | Planned |

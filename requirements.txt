@@ -1,5 +1,4 @@
-# API runtime. Later phases add their own dependencies here as they land
-# (RAG: embeddings/vector store/LLM client).
+# API runtime.
 fastapi==0.165.0
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.9
@@ -16,3 +15,5 @@ python-multipart==0.0.34
 pymupdf==2.2
 pytesseract==0.3.13
 pillow==13.0.0
+# Assistant (Phase 4): HTTP client for Ollama; embeddings and generation run in Ollama.
+httpx==0.29.0

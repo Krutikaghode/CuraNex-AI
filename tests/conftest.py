@@ -12,6 +12,7 @@ from app.main import app
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "data_dir", str(tmp_path / "data"))
+    monkeypatch.setattr(get_settings(), "llm_provider", "fake")
     engine = build_engine(f"sqlite:///{tmp_path / 'test.db'}")
     Base.metadata.create_all(engine)
     TestingSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

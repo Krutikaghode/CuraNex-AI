@@ -40,6 +40,7 @@ if submitted and uploaded is not None:
             "POST",
             f"/patients/{patient_id}/reports",
             files={"file": (uploaded.name, uploaded.getvalue(), uploaded.type)},
+            timeout=120,
         )
     if upload_error:
         st.error(upload_error)

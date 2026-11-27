@@ -25,3 +25,5 @@ uploads/
 patient_data/
 private_data/
 backups/
+data/
+*.db

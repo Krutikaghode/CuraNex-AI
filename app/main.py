@@ -1,26 +1,15 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
-from backend.database import initialize_database
-from backend.routes.patients import router as patients_router
+from app.api.routes.patients import router as patients_router
+from app.api.routes.system import router as system_router
+from app.core.config import get_settings
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    initialize_database()
-    yield
-
+settings = get_settings()
 
 app = FastAPI(
-    title="CuraNex AI",
-    description="Educational healthcare decision-support prototype.",
-    version="0.1.0",
-    lifespan=lifespan,
+    title=settings.app_name,
+    description="Educational healthcare decision-support prototype. Synthetic data only.",
+    version="0.2.0",
 )
+app.include_router(system_router)
 app.include_router(patients_router)
-
-
-@app.get("/health", tags=["system"])
-def health() -> dict[str, str]:
-    return {"status": "ok"}

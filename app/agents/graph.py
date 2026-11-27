@@ -94,7 +94,10 @@ def _risk_section(db: Session, patient: Patient) -> dict:
         latest = history[0]
         top = [c for c in latest.contributions if c["impact"] > 0][:3]
         drivers = ", ".join(
-            f"{c['label']} ({c['value']:g})" if c["value"] is not None else f"{c['label']} (not measured)" for c in top
+            f"{c['label']} ({c['value']:g})"
+            if c["value"] is not None
+            else f"{c['label']} (not measured)"
+            for c in top
         )
         text = (
             f"Latest diabetes risk: {latest.probability:.0%} ({latest.risk_level}), "

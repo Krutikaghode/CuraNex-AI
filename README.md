@@ -17,7 +17,7 @@ Streamlit UI (frontend/)  --HTTP-->  FastAPI (app/)  -->  SQLAlchemy  -->  SQLit
                                          +-- app/reports PDF text extraction + Tesseract OCR
                                          +-- app/rag     chunking, embeddings, retrieval, cited answers
                                          +-- app/monitoring vitals analysis (ranges, baseline outliers, trends)
-                                         +-- app/agents  LangGraph router (Phase 7, stretch)
+                                         +-- app/agents  LangGraph router over reports, risk and vitals
                                          +-- Ollama      local LLM, optional compose profile
 ```
 
@@ -195,6 +195,24 @@ reset, per-patient access control and an audit log.
 | `GET/POST /auth/users` | List / create users (admin) |
 | `PATCH /auth/users/{id}` | Activate / deactivate (admin) |
 
+## Agent router ("Ask anything")
+
+`POST /patients/{id}/agent/ask` runs a LangGraph workflow (`app/agents/graph.py`):
+
+```
+route ──► reports | risk | vitals | overview ──► compose
+```
+
+- **route:** the LLM classifies the question into one word; any other reply (or an LLM
+  outage) falls back to keyword rules. The response says which router decided.
+- **reports:** the RAG assistant above, with citations.
+- **risk / vitals:** rendered from stored predictions and the vitals analysis with fixed
+  templates, so their numbers cannot be hallucinated, and they keep working when the LLM
+  is down.
+- **overview:** risk + vitals + "which report results are flagged abnormal".
+
+Each answer includes a step trace, shown in the UI under "How this was answered".
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -208,4 +226,4 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 | 4 | RAG assistant: chunking, Ollama embeddings, DB-backed retrieval, cited answers, eval set | Done |
 | 5 | Health monitoring: vitals, range flags, baseline outliers, trends | Done |
 | 6 | Auth: Argon2 + JWT, clinician/admin roles, login UI | Done |
-| 7 | LangGraph agent router (stretch) | Planned |
+| 7 | LangGraph agent router (reports, risk, vitals, overview) | Done |

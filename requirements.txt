@@ -20,3 +20,5 @@ httpx==0.29.0
 # Auth (Phase 6): Argon2 password hashing and JWT access tokens.
 pwdlib[argon2]==0.4.2
 pyjwt==2.15.1
+# Agent router (Phase 7)
+langgraph==1.2.24

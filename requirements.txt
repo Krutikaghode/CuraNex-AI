@@ -1,5 +1,5 @@
 # API runtime. Later phases add their own dependencies here as they land
-# (reports: pymupdf/pytesseract, RAG: langchain/chromadb).
+# (RAG: embeddings/vector store/LLM client).
 fastapi==0.165.0
 uvicorn[standard]==0.54.0
 sqlalchemy==2.1.9
@@ -11,3 +11,8 @@ pydantic-settings==2.16.3
 numpy==2.5.5
 xgboost-cpu==3.4.1; sys_platform != "darwin"
 xgboost==3.4.1; sys_platform == "darwin"
+# Report upload and text extraction (Phase 3). OCR also needs the tesseract binary.
+python-multipart==0.0.34
+pymupdf==2.2
+pytesseract==0.3.13
+pillow==13.0.0

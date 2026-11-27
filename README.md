@@ -90,6 +90,23 @@ The training population (Pima women aged 21+) limits how far scores generalise.
 | `GET /patients/{id}/predictions` | Prediction history |
 | `GET /predictions/summary` | Risk distribution across active patients (latest per patient) |
 
+## Medical reports
+
+Upload PDF, PNG or JPEG (max 10 MB) per patient. The file type is checked from its bytes,
+files are stored under random names in `CURANEX_DATA_DIR/reports/<patient_id>/`, and the
+extracted text is saved with the report. PDF pages with a text layer are read directly with
+PyMuPDF; pages without one (scans) and images are OCR'd with Tesseract. Local runs need the
+`tesseract` binary (`brew install tesseract` / `apt install tesseract-ocr`); the Docker image
+includes it.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /patients/{id}/reports` | Upload (multipart `file`) and extract text |
+| `GET /patients/{id}/reports` | List a patient's reports |
+| `GET /reports/{id}` | Report metadata and extracted text |
+| `GET /reports/{id}/file` | Download the original file |
+| `GET /reports/count` | Number of successfully processed reports |
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -99,7 +116,7 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 | 0 | Scope, README, disclaimer | Done |
 | 1 | Foundation: single `app/` package, settings, SQLAlchemy + Alembic, Docker, CI, multipage UI | Done |
 | 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Done |
-| 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Planned |
+| 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Done |
 | 4 | RAG assistant: chunking, embeddings, Chroma, Ollama, cited answers, eval set | Planned |
 | 5 | Health monitoring: vitals, trends, anomaly flags (statsmodels) | Planned |
 | 6 | Auth: JWT, clinician role | Planned |

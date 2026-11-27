@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 
 from app.api.deps import get_current_user
+from app.api.routes.agent import router as agent_router
 from app.api.routes.assistant import router as assistant_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.patients import router as patients_router
@@ -46,7 +47,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Educational healthcare decision-support prototype. Synthetic data only.",
-    version="0.7.0",
+    version="0.8.0",
     lifespan=lifespan,
 )
 
@@ -60,5 +61,6 @@ for router in (
     reports_router,
     assistant_router,
     vitals_router,
+    agent_router,
 ):
     app.include_router(router, dependencies=protected)

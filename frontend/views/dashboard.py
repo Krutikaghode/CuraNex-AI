@@ -19,13 +19,15 @@ patients = str(count_data["count"]) if count_data and not count_error else "—"
 model, _ = api_request("GET", "/models/diabetes") if online else (None, "offline")
 model_auc = f"{model['metrics']['roc_auc']:.2f} AUC" if model else "N/A"
 summary, _ = api_request("GET", "/predictions/summary") if online else (None, "offline")
+report_count, _ = api_request("GET", "/reports/count") if online else (None, "offline")
+reports = str(report_count["count"]) if report_count else "—"
 
 for col, (label, value) in zip(
     st.columns(4),
     [
         ("👥 Registered Patients", patients),
         ("❤️ Diabetes Model", model_auc),
-        ("📄 Reports Analyzed", "N/A"),  # Phase 3
+        ("📄 Reports Analyzed", reports),
         ("🛡️ System Status", "Active" if online else "Degraded"),
     ],
 ):

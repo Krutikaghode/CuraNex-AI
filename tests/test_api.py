@@ -1,24 +1,3 @@
-from pathlib import Path
-
-from fastapi.testclient import TestClient
-import pytest
-
-from app.main import app
-from backend import database
-
-
-@pytest.fixture()
-def client(monkeypatch):
-    test_db = Path("data") / "test_curanex.db"
-    if test_db.exists():
-        test_db.unlink()
-    monkeypatch.setattr(database, "DB_PATH", test_db)
-    with TestClient(app) as test_client:
-        yield test_client
-    if test_db.exists():
-        test_db.unlink()
-
-
 def patient_payload(**overrides):
     payload = {
         "full_name": "Asha Sharma",
@@ -44,9 +23,7 @@ def test_patient_lifecycle(client):
     assert len(listed.json()) == 1
     assert client.get("/patients/count").json() == {"count": 1}
 
-    updated = client.patch(
-        "/patients/1", json={"age": 35, "concern": "Annual screening"}
-    )
+    updated = client.patch("/patients/1", json={"age": 35, "concern": "Annual screening"})
     assert updated.status_code == 200
     assert updated.json()["age"] == 35
 
@@ -66,7 +43,35 @@ def test_patient_validation_and_duplicate_email(client):
 
     first = client.post("/patients", json=patient_payload())
     assert first.status_code == 201
-    duplicate = client.post(
-        "/patients", json=patient_payload(full_name="Nisha Patel")
-    )
+    duplicate = client.post("/patients", json=patient_payload(full_name="Nisha Patel"))
     assert duplicate.status_code == 409
+
+
+def test_health(client):
+    assert client.get("/health").json() == {"status": "ok", "database": "ok"}
+
+
+def test_search_and_include_inactive(client):
+    client.post("/patients", json=patient_payload())
+    client.post(
+        "/patients",
+        json=patient_payload(full_name="Ravi Kumar", email="ravi@example.com"),
+    )
+    assert [p["full_name"] for p in client.get("/patients", params={"search": "ravi"}).json()] == [
+        "Ravi Kumar"
+    ]
+    client.delete("/patients/1")
+    assert len(client.get("/patients").json()) == 1
+    assert len(client.get("/patients", params={"include_inactive": True}).json()) == 2
+    assert client.delete("/patients/1").status_code == 404
+
+
+def test_update_to_duplicate_email_conflicts(client):
+    client.post("/patients", json=patient_payload())
+    client.post("/patients", json=patient_payload(full_name="Ravi Kumar", email="ravi@example.com"))
+    response = client.patch("/patients/2", json={"email": "ASHA@example.com"})
+    assert response.status_code == 409
+
+
+def test_unknown_fields_rejected(client):
+    assert client.post("/patients", json=patient_payload(ssn="123")).status_code == 422

@@ -13,7 +13,7 @@ monitoring.
 ```
 Streamlit UI (frontend/)  --HTTP-->  FastAPI (app/)  -->  SQLAlchemy  -->  SQLite (dev) / Postgres (compose)
                                          |
-                                         +-- app/ml      diabetes risk model (Phase 2)
+                                         +-- app/ml      diabetes risk model (XGBoost + SHAP)
                                          +-- app/rag     report ingestion + retrieval (Phases 3-4)
                                          +-- app/agents  LangGraph router (Phase 7, stretch)
                                          +-- Ollama      local LLM, optional compose profile
@@ -31,6 +31,8 @@ migrations/            Alembic migrations
 frontend/
   app.py               Streamlit entrypoint and navigation
   views/               one file per page
+datasets/              training data (see datasets/README.md)
+models/                trained model artifacts + metadata (committed)
 docker/                Dockerfiles for api and ui
 tests/                 pytest suite
 ```
@@ -66,6 +68,28 @@ ruff check . && ruff format --check .
 alembic revision --autogenerate -m "describe change"   # after changing app/db/models.py
 ```
 
+## Diabetes risk model
+
+`models/diabetes/` ships a trained XGBoost model (native JSON format, no pickle) and
+`metadata.json` with its version, hyperparameters, dataset hash and held-out metrics
+(currently ROC AUC 0.82, recall 0.83). To retrain:
+
+```bash
+python -m app.ml.train_diabetes   # grid search with 5-fold CV, ~10 s
+```
+
+Zeros in glucose, blood pressure, skin thickness, insulin and BMI are treated as missing.
+Each prediction stores its inputs, model version and per-feature SHAP contributions, so
+results are reproducible and explainable. Risk bands: low < 30% ≤ moderate < 60% ≤ high.
+The training population (Pima women aged 21+) limits how far scores generalise.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /models/diabetes` | Model metadata and metrics |
+| `POST /patients/{id}/predictions/diabetes` | Score a patient and store the result |
+| `GET /patients/{id}/predictions` | Prediction history |
+| `GET /predictions/summary` | Risk distribution across active patients (latest per patient) |
+
 CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker build on every PR.
 
 ## Roadmap
@@ -74,7 +98,7 @@ CI (GitHub Actions) runs lint, tests, a migration up/down check and a Docker bui
 |---|---|---|
 | 0 | Scope, README, disclaimer | Done |
 | 1 | Foundation: single `app/` package, settings, SQLAlchemy + Alembic, Docker, CI, multipage UI | Done |
-| 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Planned |
+| 2 | Diabetes risk prediction (XGBoost on Pima dataset), stored predictions, model metrics on dashboard | Done |
 | 3 | Medical report upload, PDF text extraction (PyMuPDF), OCR fallback (Tesseract) | Planned |
 | 4 | RAG assistant: chunking, embeddings, Chroma, Ollama, cited answers, eval set | Planned |
 | 5 | Health monitoring: vitals, trends, anomaly flags (statsmodels) | Planned |

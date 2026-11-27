@@ -37,8 +37,20 @@ for col, (label, value) in zip(
 st.write("")
 left, right = st.columns([2, 1])
 with left:
-    st.markdown("### 📊 Health Overview")
-    st.info("Vitals trends appear here once health monitoring is built (Phase 5).")
+    st.markdown("### 🚨 Patients Needing Attention")
+    alerts, _ = api_request("GET", "/monitoring/alerts") if online else (None, "offline")
+    if alerts:
+        for item in alerts[:5]:
+            with st.container(border=True):
+                st.markdown(f"**#{item['patient_id']} {item['full_name']}**")
+                for alert in item["alerts"][:3]:
+                    st.caption(f"• {alert}")
+        if len(alerts) > 5:
+            st.caption(f"And {len(alerts) - 5} more. See Health Monitoring.")
+    elif alerts == []:
+        st.success("No vitals alerts in the last 30 days.")
+    else:
+        st.info("Vitals alerts will appear here.")
 with right:
     st.markdown("### 🩺 Diabetes Risk Distribution")
     if summary and summary["patients_scored"]:
@@ -69,6 +81,7 @@ actions = [
     ("🧬 Disease Prediction", "views/disease_prediction.py"),
     ("📄 Medical Reports", "views/medical_reports.py"),
     ("🤖 AI Assistant", "views/ai_assistant.py"),
+    ("📈 Health Monitoring", "views/health_monitoring.py"),
 ]
 for col, (label, target) in zip(st.columns(len(actions)), actions):
     with col:

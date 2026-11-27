@@ -9,6 +9,7 @@ RUN pip install -r requirements.txt
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini .
+COPY models ./models
 
 RUN useradd --create-home curanex && mkdir -p /srv/data && chown curanex /srv/data
 USER curanex

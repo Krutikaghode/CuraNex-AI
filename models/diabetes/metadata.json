@@ -1,0 +1,52 @@
+{
+  "name": "diabetes-xgboost",
+  "version": "20261127150805",
+  "trained_at": "2026-11-27T15:08:05+00:00",
+  "algorithm": "XGBoost 3.4.1",
+  "features": [
+    "pregnancies",
+    "glucose",
+    "blood_pressure",
+    "skin_thickness",
+    "insulin",
+    "bmi",
+    "diabetes_pedigree",
+    "age"
+  ],
+  "best_params": {
+    "learning_rate": 0.05,
+    "max_depth": 2,
+    "n_estimators": 100
+  },
+  "metrics": {
+    "roc_auc": 0.8172,
+    "accuracy": 0.7662,
+    "precision": 0.625,
+    "recall": 0.8333,
+    "f1": 0.7143,
+    "cv_roc_auc": 0.8329
+  },
+  "decision_threshold": 0.5,
+  "risk_bands": [
+    {
+      "below": 0.3,
+      "level": "low"
+    },
+    {
+      "below": 0.6,
+      "level": "moderate"
+    },
+    {
+      "below": 1.01,
+      "level": "high"
+    }
+  ],
+  "dataset": {
+    "file": "pima_diabetes.csv",
+    "sha256": "c62fdc4685d8e47c2a80e2303f88caa99afaeeadea58873fcafffcf288c3c7be",
+    "rows": 768,
+    "train_rows": 614,
+    "test_rows": 154,
+    "positive_rate": 0.349
+  }
+}

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/curanex.db"
     # Directory for uploaded reports and trained model artifacts (later phases).
     data_dir: str = "./data"
+    # Trained model artifacts; each model lives in its own subdirectory.
+    models_dir: str = "./models"
     # LLM provider for the RAG assistant (later phase): "ollama" or "anthropic".
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
